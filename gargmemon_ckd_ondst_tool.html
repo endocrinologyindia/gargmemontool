@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garg-Memon tool</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #results {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            display: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f8f9fa;
+        }
+
+        .citation {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        @media (min-width: 768px) {
+            .form-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Garg-Memon tool for Overnight 1-mg DST Serum Cortisol in Various Stages of CKD</h1>
+        
+        <form id="kidneyForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="creat">Serum Creatinine (mg/dL):</label>
+                    <input type="number" id="creat" step="0.1" min="0.1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="gender">Gender:</label>
+                    <select id="gender" required>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="age">Age (years):</label>
+                    <input type="number" id="age" min="0" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ondstCortisol">8 AM serum cortisol after 1 mg dexamethasone (µg/dL):</label>
+                    <input type="number" id="ondstCortisol" step="0.1" min="0.1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="method">Method of Testing:</label>
+                    <select id="method" required>
+                        <option value="immunoassay">Immunoassay</option>
+                        <option value="lcms">LC-MS/MS</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="baselineCortisol">Baseline Cortisol 8 AM (µg/dL) (Optional):</label>
+                    <input type="number" id="baselineCortisol" step="0.1" min="0.1">
+                </div>
+
+                <div class="form-group">
+                    <label for="baselineActh">Baseline ACTH 8 AM (pg/mL) (Optional):</label>
+                    <input type="number" id="baselineActh" step="0.1" min="0.1">
+                </div>
+
+                <div class="form-group">
+                    <label for="serumDexamethasone">Serum Dexamethasone levels (ng/mL) (Optional):</label>
+                    <input type="number" id="serumDexamethasone" step="0.1" min="0.1">
+                </div>
+            </div>
+
+            <button type="submit">Calculate Results</button>
+        </form>
+
+        <div id="results"></div>
+
+        <p class="citation">
+            Citation: Garg R, Memon SS, Lila A, et al. Overnight 1-mg DST Serum Cortisol in Various Stages of Chronic Kidney Disease—Normative Data and Underlying Mechanisms. J Endocr Soc. 2024;8(3):1-8.
+        </p>
+    </div>
+
+    <script>
+        const normativeRanges = {
+            G1: { ondst_cortisol: [0.2, 1.2], cutoff: 1.2 },
+            G2: { ondst_cortisol: [0.5, 3.0], cutoff: 3.0 },
+            G3a: { ondst_cortisol: [0.9, 3.2], cutoff: 3.2 },
+            G3b: { ondst_cortisol: [0.5, 4.3], cutoff: 4.3 },
+            G4: { ondst_cortisol: [0.9, 4.7], cutoff: 4.7 },
+            G5: { ondst_cortisol: [1.2, 5.7], cutoff: 5.7 }
+        };
+
+        const parameterRanges = {
+            G1: {
+                baseline_cortisol: [6.2, 16.3],
+                baseline_acth: [28.5, 47.5],
+                serum_dexamethasone: [1.88, 13.45],
+                acth_post_dexamethasone: [2.9, 8.4],
+                cortisol_4pm: [0.2, 1.3]
+            },
+            G2: {
+                baseline_cortisol: [9.8, 17.1],
+                baseline_acth: [23.5, 53.1],
+                serum_dexamethasone: [1.06, 12.44],
+                acth_post_dexamethasone: [1.6, 15.2],
+                cortisol_4pm: [0.2, 3.6]
+            },
+            G3a: {
+                baseline_cortisol: [9.8, 17.1],
+                baseline_acth: [23.5, 53.1],
+                serum_dexamethasone: [1.06, 12.44],
+                acth_post_dexamethasone: [1.6, 15.2],
+                cortisol_4pm: [0.2, 3.6]
+            },
+            G3b: {
+                baseline_cortisol: [9.8, 17.1],
+                baseline_acth: [23.5, 53.1],
+                serum_dexamethasone: [1.06, 12.44],
+                acth_post_dexamethasone: [1.6, 15.2],
+                cortisol_4pm: [0.2, 3.6]
+            },
+            G4: {
+                baseline_cortisol: [12.5, 16.0],
+                baseline_acth: [24.9, 54.2],
+                serum_dexamethasone: [2.17, 23.17],
+                acth_post_dexamethasone: [4.6, 15.9],
+                cortisol_4pm: [0.2, 3.6]
+            },
+            G5: {
+                baseline_cortisol: [12.5, 16.0],
+                baseline_acth: [24.9, 54.2],
+                serum_dexamethasone: [2.17, 23.17],
+                acth_post_dexamethasone: [4.6, 15.9],
+                cortisol_4pm: [0.2, 3.6]
+            }
+        };
+
+        function calculateEgfr(creat, female, age) {
+            const g = female ? 1.012 : 1.0;
+            let a, b;
+
+            if (female) {
+                if (creat <= 0.7) {
+                    a = 0.7;
+                    b = -0.241;
+                } else {
+                    a = 0.7;
+                    b = -1.2;
+                }
+            } else {
+                if (creat <= 0.9) {
+                    a = 0.9;
+                    b = -0.302;
+                } else {
+                    a = 0.9;
+                    b = -1.2;
+                }
+            }
+
+            const p1 = creat / a;
+            const p2 = Math.pow(p1, b);
+            const p3 = Math.pow(0.9938, age);
+            const p4 = 142 * p2 * p3 * g;
+            const egfr1 = Math.round(p4);
+
+            let cat, info;
+            if (egfr1 >= 90) {
+                cat = "G1";
+                info = "This falls in category of normal/high eGFR";
+            } else if (egfr1 >= 60) {
+                cat = "G2";
+                info = "This falls in category of mildly decreased eGFR";
+            } else if (egfr1 >= 45) {
+                cat = "G3a";
+                info = "This falls in category of mildly to moderately decreased eGFR";
+            } else if (egfr1 >= 30) {
+                cat = "G3b";
+                info = "This falls in category of Moderately to Severely decreased eGFR";
+            } else if (egfr1 >= 15) {
+                cat = "G4";
+                info = "This falls in category of Severely decreased eGFR";
+            } else {
+                cat = "G5";
+                info = "This falls in category of Kidney failure";
+            }
+
+            return { egfr1, cat, info };
+        }
+
+        document.getElementById('kidneyForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const creat = parseFloat(document.getElementById('creat').value);
+            const gender = document.getElementById('gender').value;
+            const age = parseInt(document.getElementById('age').value);
+            const ondstCortisol = parseFloat(document.getElementById('ondstCortisol').value);
+            
+            const egfrResult = calculateEgfr(creat, gender === 'female', age);
+            const { egfr1, cat, info } = egfrResult;
+
+            const ondstRange = normativeRanges[cat].ondst_cortisol;
+            const cutoffValue = normativeRanges[cat].cutoff;
+            const cushingStatus = ondstCortisol <= cutoffValue ? 
+                "no Cushing's syndrome" : 
+                "possible Cushing's syndrome";
+
+            const resultsHtml = `
+                <h2>Results</h2>
+                <p><strong>eGFR:</strong> ${egfr1} mL/min/1.73m2</p>
+                <p><strong>Category:</strong> ${cat}</p>
+                <p>${info}</p>
+                <p>Based on the ONDST cortisol value (${ondstCortisol} µg/dL), the patient has ${cushingStatus}.</p>
+                <p>The cutoff for the particular CKD category (${cat}) is ${cutoffValue} µg/dL.</p>
+                <p>Normal range for ONDST cortisol in this category: ${ondstRange[0]} - ${ondstRange[1]} µg/dL</p>
+            `;
+
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = resultsHtml;
+            resultsDiv.style.display = 'block';
+        });
+    </script>
+</body>
+</html>
